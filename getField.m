@@ -1,3 +1,4 @@
+% Updated getField
 function B = getField(position, theta, CHI, Y, W0, R_CYLINDER, GAMMA, L_CUBE, NUM_CYLINDER)
 
 	C = zeros(2, NUM_CYLINDER);
