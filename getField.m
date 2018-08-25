@@ -1,4 +1,3 @@
-% Updated getField
 function B = getField(position, theta, CHI, Y, W0, R_CYLINDER, GAMMA, L_CUBE, NUM_CYLINDER)
 
 	C = zeros(2, NUM_CYLINDER);
@@ -58,6 +57,6 @@ function B = getField(position, theta, CHI, Y, W0, R_CYLINDER, GAMMA, L_CUBE, NU
         	B = B + [0; 0; 2*3.1415926*CHI*(1-Y)*W0/GAMMA*(sin(theta))^2*(r_cyl/r)^2*((position(1) - C(1, i))^2-(position(2) - C(2, i))^2)/((position(1) - C(1, i))^2+(position(2) - C(2, i))^2)];       
     	end
 
-    end
-    
+	end
+
 end
