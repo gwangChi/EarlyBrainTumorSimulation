@@ -2,47 +2,91 @@
 module BlochSolver
    (
      solveBloch
+   , evolveMags
    ) where
 
 import LinearAlgebra
 
-solveBloch :: Double -> Double -> Double -> Double -> Double -> Vector -> Vector
-solveBloch gamma t1 t2 t_step field m1 | a>0 = multMV (multDM (exp (-c2*t_step/3)) p1) m1
-                                       | a<0 && g>1 = multMV (multDM (exp (-c2*t_step/3)) p2) m1
-                                       | a<0 && g<1 = multMV (multDM (exp (-c2*t_step/3)) p3) m1
-                                       | a<0 && g==1 = multMV (multDM (exp (-c2*t_step/3)) p4) m1
-                                       | a==0 && b==0 = multMV (multDM (exp (-c2*t_step/3)) p5) m1
-                                       where r1 = 0
-                                             r2 = 0
-                                             r3 = 0
-                                             c0 = r3*(gamma*field)**2
-                                             c1 = (gamma*field)**2 + r1*r2 + r1*r3 + r2*r3
-                                             c2 = r1 + r2 + r3
-                                             r_ = c2/3
-                                             gamma_p = ((r1-r_, gamma*field, 0),
-                                                        (-gamma*field, r2-r_, 0),
-                                                        (0, 0, r3-r_))
-                                             gamma_p2 = multMM gamma_p gamma_p
-                                             a = c1 - 1/3*c2**2
-                                             b = 2*(c2/3)**3 - c1*c2/3 + c0
-                                             g = 0.5*abs b / (1/3*abs a)**1.5
-                                             z1 = (-2)*sqrt (1/3*abs a)*sign b* sinh (1/3*asinh g)
-                                             z2 = (-2)*sqrt (1/3*abs a)*sign b* cosh (1/3*acosh g)
-                                             z3 = (-2)*sqrt (1/3*abs a)*sign b* cos (1/3*acos g)
-                                             z4 = z2
-                                             w1 = sqrt (abs a)*cosh (1/3*asinh g)
-                                             w2 = sqrt (abs a)*sinh (1/3*acosh g)
-                                             w3 = sqrt (abs a)*abs (sin (1/3*acos g))
-                                             p1 = (1/(3*z1**2+a))<**>((exp (z1*t_step) <**> (((z1**2+a)<**>eye) <-> (z1<**>gamma_p) <+> gamma_p2)) <+>
-                                                  ((exp (-z1*t_step/2)*cos (w1*t_step)) <**> (((2*z1**2)<**>eye)<+>(z1<**>gamma_p)<->gamma_p2))
-                                                  <-> ((exp (-z1*t_step/2)*sin (w1*t_step)/w1) <**> (((a*z1)<**>eye) <+> ((a+3/2*z1**2)<**>gamma_p2))))
-                                             p2 = (1/(3*z2**2+a))<**>((exp (z2*t_step) <**> (((z2**2+a)<**>eye) <-> (z2<**>gamma_p) <+> gamma_p2)) <+>
-                                                  ((exp (-z2*t_step/2)*cos (w2*t_step)) <**> (((2*z2**2)<**>eye)<+>(z1<**>gamma_p)<->gamma_p2))
-                                                  <-> ((exp (-z2*t_step/2)*sin (w2*t_step)/w2) <**> (((a*z2)<**>eye) <+> ((a+3/2*z2**2)<**>gamma_p2))))
-                                             p3 = (1/(3*z3**2+a))<**>((exp (z3*t_step) <**> (((z3**2+a)<**>eye) <-> (z3<**>gamma_p) <+> gamma_p2)) <+>
-                                                  ((exp (-z3*t_step/2)*cosh (w3*t_step)) <**> (((2*z3**2)<**>eye)<+>(z3<**>gamma_p)<->gamma_p2))
-                                                  <-> ((exp (-z3*t_step/2)*sinh (w3*t_step)/w3) <**> (((a*z3)<**>eye) <+> ((a+3/2*z3**2)<**>gamma_p2))))
-                                             p4 = ((1/9*exp (z1*t_step) + 8/9*exp (-z1*t_step/2) + z1/3*t_step*exp (-z1*t_step/2)) <**> eye) <+>
-                                                  ((-4/9/z1*exp (-z1*t_step/2) - 1/3*t_step*exp (-z1*t_step/2))<**>gamma_p) <+> 
-                                                  ((4/9/z1**2*exp (z1*t_step) - 4/9/z1**2*exp (-z1*t_step/2) - 2/3/z1*t_step*exp (-z1*t_step/2)) <**> gamma_p2)
-                                             p5 = eye <-> (t_step<**>gamma_p) <+> ((1/2*t_step**2)<**>gamma_p2)
+-- GIVEN A MAG, SOLVE FOR THE NEW MAG BASED ON TIME INTERVAL AND CURRENT B FIELD
+solveBloch :: Double -> Double -> Double -> Double -> Vector -> Vector -> Vector
+solveBloch gamma t1 t2 t_step (bx,by,bz) m1 | a>0 = multMV (exp (-c2*t_step/3) <**> p1) m1
+                                            | a<0 && gamm>1 = multMV (exp (-c2*t_step/3) <**> p2) m1
+                                            | a<0 && gamm<1 = multMV (exp (-c2*t_step/3) <**> p3) m1
+                                            | a<0 && gamm==1 = multMV (exp (-c2*t_step/3) <**> p4) m1
+                                            | a==0 && b==0 = multMV (exp (-c2*t_step/3) <**> p5) m1
+                                            where r1 | t2 == 0 = 0
+                                                     | otherwise = 1/t2
+                                                  r2 | t2 == 0 = 0
+                                                     | otherwise = 1/t2
+                                                  r3 | t1 == 0 = 0
+                                                     | otherwise = 1/t1
+                                                  w1 = (-1)*gamma*bx
+                                                  w2 = (-1)*gamma*by
+                                                  w3 = (-1)*gamma*bz
+                                                  c0 = r1*(w1**2) + r2*(w2**2) + r3*(w3**2)
+                                                  c1 = w1**2 + w2**2 + w3**2 + r1*r2 + r2*r3 + r1*r3
+                                                  c2 = r1 + r2 + r3
+                                                  r_ = c2/3
+                                                  gamma_p = ((r1-r_,-w3,w2),(w3,r2-r_,-w1),(-w2,w1,r3-r_))
+                                                  a = c1 - 1/3*(c2**2)
+                                                  b = 2/27*(c2**3) - 1/3*c1*c2 + c0
+                                                  alph = 1/3*(abs a)
+                                                  beta = 1/2*(abs b)
+                                                  gamm = beta/(alph**(1.5))
+
+                                                  z1 = -2*(sqrt alph)*(sign b)*(sinh (1/3*(asinh gamm)))
+                                                  z2 = -2*(sqrt alph)*(sign b)*(cosh (1/3*(acosh gamm)))
+                                                  z3 = -2*(sqrt alph)*(sign b)*(cos (1/3*(acos gamm)))
+                                                  z4 = z2
+                                                
+                                                  w_1 = sqrt (3*alph)*(cosh (1/3*(asinh gamm)))
+                                                  w_2 = sqrt (3*alph)*(sinh (1/3*(acosh gamm)))
+                                                  w_3 = abs ((sqrt (3*alph))*(sin (1/3*(acos gamm))))
+                                             
+                                                  gamma_p2 = multMM gamma_p gamma_p
+                                               
+                                                  p1 = ((exp (-z1*t_step/2))/(a + 3*(z1**2))) <**> ((((a + z1**2)*exp (3/2*z1*t_step) + 2*(z1**2)*cos (w_1*t_step) - a/w_1*z1*sin (w_1*t_step)) <**> eye) <+> 
+                                                                                                   (((-z1)*exp (3/2*z1*t_step) + z1*cos (w_1*t_step) - (a + 3/2*(z1**2))/w_1*sin (w_1*t_step)) <**> gamma_p) <+> 
+                                                                                                   ((exp (3/2*z1*t_step) - cos (w_1*t_step) - 3/2/w_1*z1*sin (w_1*t_step)) <**> gamma_p2))                                            
+                                             
+                                                  p2 = ((exp (-z1*t_step/2))/(a + 3*(z1**2))) <**> ((((a + z2**2)*exp (3/2*z2*t_step) + 2*(z2**2)*cos (w_2*t_step) - a/w_2*z2*sin (w_2*t_step)) <**> eye) <+> 
+                                                                                                   (((-z2)*exp (3/2*z2*t_step) + z1*cos (w_2*t_step) - (a + 3/2*(z2**2))/w_2*sin (w_2*t_step)) <**> gamma_p) <+> 
+                                                                                                   ((exp (3/2*z2*t_step) - cos (w_2*t_step) - 3/2/w_2*z2*sin (w_2*t_step)) <**> gamma_p2))   
+
+                                                  p3 = ((exp (-z1*t_step/2))/(a + 3*(z1**2))) <**> ((((a + z3**2)*exp (3/2*z3*t_step) + 2*(z3**2)*cosh (w_3*t_step) - a/w_3*z3*sinh (w_3*t_step)) <**> eye) <+> 
+                                                                                                   (((-z3)*exp (3/2*z3*t_step) + z3*cosh (w3*t_step) - (a + 3/2*(z3**2))/w_3*sinh (w_3*t_step)) <**> gamma_p) <+> 
+                                                                                                   ((exp (3/2*z3*t_step) - cosh (w_3*t_step) - 3/2/w_3*z3*sinh (w_3*t_step)) <**> gamma_p2))
+   
+                                                  p4 = ((exp (-z1*t_step/2))) <**> (((1/9*exp (3/2*z4*t_step) + 8/9 + t_step/3*z1) <**> eye) <+>
+                                                                                   ((-4/9/z4*exp (3/2*z4*t_step) + 4/9/z4 - t_step/3) <**> gamma_p) <+>
+                                                                                   ((4/9/(z4**2)*exp (3/2*z4*t_step) - 4/9/(z4**2) - 2*t_step/3/z4) <**> gamma_p2))
+
+                                                  p5 = eye <+> ((-t_step) <**> gamma_p) <+> (((1/2*(t_step**2)) <**> gamma_p2))
+
+
+
+-- EVOLVES 1 MAGNETIZATION VECTOR FOR THE WHOLE COURSE
+evolveMag :: Double -> [Double] -> Double -> Double -> Double -> Double -> [Vector] -> Vector -> [Vector]
+evolveMag currStep flips gamma t1 t2 t_step [] _ = []
+evolveMag currStep flips gamma t1 t2 t_step (field:fields) (mx,my,mz) | elem (currStep*t_step) flips = [m2_] ++ evolveMag (currStep+1) flips gamma t1 t2 t_step fields m2_
+                                                                      | otherwise = [m2] ++ evolveMag (currStep+1) flips gamma t1 t2 t_step fields m2
+                                                                      where m2 = solveBloch gamma t1 t2 t_step field (mx,my,mz)
+                                                                            m2_ = solveBloch gamma t1 t2 t_step field (-mx,my,-mz)           
+
+-- EVOLVES N MAGNETIZATIONS FOR THE WHOLE COURSE
+evolveMags :: [Double] -> Double -> Double -> Double -> Double -> [Vector] -> [[Vector]] -> [[Vector]]
+evolveMags flips gamma t1 t2 t_step [] _ = []
+evolveMags flips gamma t1 t2 t_step (m:ms) (fields:fieldss) = [evolveMag 0 flips gamma t1 t2 t_step fields m] ++ evolveMags flips gamma t1 t2 t_step ms fieldss
+
+
+
+
+
+
+
+
+
+
+
+
+

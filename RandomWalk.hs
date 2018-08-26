@@ -7,6 +7,7 @@ module RandomWalk
     , checkPeriod
     , randWalk
     , initCoord
+    , walkAll
    ) where
 
 -- IMPORTS THE RANDOM NUMBER LIBRARY
@@ -41,23 +42,23 @@ newRand = randomIO :: IO Double
 -- http://mathworld.wolfram.com/SpherePointPicking.html
 randStep :: IO (Coord)
 randStep = do
-   u <- newRand
-   v <- newRand
-   return (sin (2*pi*u)*(2*v-1), sin (2*pi*u)*sqrt (1-(2*v-1)**2), sqrt (1-sin (2*pi*u)**2))
+   a <- newRand
+   b <- newRand
+   return (sqrt (1-(a*2-1)**2)*cos (b*2*pi), sqrt (1-(a*2-1)**2)*sin (b*2*pi), (a*2-1))
 
 randWalk :: Int -> Double -> Double -> Double -> Double -> Coord -> IO ([Coord])
 randWalk curr num_cyl r_cyl0 l_cube l_step coord1 = do
    vstep <- randStep
    --putStrLn (show vstep)
    let coord2 = map3 (checkPeriod l_cube) (plus3 coord1 (mult3 l_step vstep))
-   putStrLn (show coord2)
+   --putStrLn (show coord2)
    if checkStep num_cyl r_cyl0 l_cube coord1 coord2 && curr == 1 then
       return [coord2]
    else if checkStep num_cyl r_cyl0 l_cube coord1 coord2 then do
       steps <- randWalk (curr-1) num_cyl r_cyl0 l_cube l_step coord2
       return ([coord2] ++ steps)
    else do
-      putStrLn " Reset "
+      --putStrLn " Reset "
       randWalk curr num_cyl r_cyl0 l_cube l_step coord1
 
 initCoord :: Int -> Double -> IO ([Coord])
@@ -72,6 +73,14 @@ initCoord n l_cube = do
    w <- newRand
    coords <- initCoord (n-1) l_cube
    return ([mult3 l_cube (u-0.5,v-0.5,w-0.5)]++coords)
+
+walkAll :: Int -> Double -> Double -> Double -> Double -> [Coord] -> IO ([[Coord]])
+walkAll num_step num_cyl r_cyl0 l_cube l_step [] = do return []
+walkAll num_step num_cyl r_cyl0 l_cube l_step (x:xs) = do
+    coords <- randWalk num_step num_cyl r_cyl0 l_cube l_step x
+    coordss <- walkAll num_step num_cyl r_cyl0 l_cube l_step xs
+    return ([coords] ++ coordss)
+
 
 
 

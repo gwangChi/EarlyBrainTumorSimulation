@@ -15,10 +15,12 @@ module LinearAlgebra
     , length3
     , multMV
     , multDM
+    , multDV
     , multMM
     , mult2
     , mult3
     , plus3
+    , plusV3
     , sbtr2
     , sbtr3
     , map3
@@ -27,6 +29,21 @@ module LinearAlgebra
     , (<+>)
     , (<->)
     , (<**>)
+    , showPrettyCoordss
+    , showPrettyCoords
+    , showPrettyDoubless
+    , showPrettyDoubles
+    , showPrettyVectorss
+    , showPrettyVectors
+    , doubles2Vectors
+    , doubless2Vectorss
+    , avgMagss2Mags
+    , sumMagss2Mags
+    , getTransNorm
+    , duplicateVector
+    , sumSineThetas
+    , sumThruThetas
+    , avgThruThetas
    ) where
 
 type Coord_X = Double
@@ -44,6 +61,12 @@ multMV ((a,b,c),(d,e,f),(g,h,i)) (x,y,z) = (a*x+d*y+g*z, b*x+e*y+h*z, c*x+f*y+i*
 
 multDM :: Double -> Matrix -> Matrix
 multDM x ((a,b,c),(d,e,f),(g,h,i)) = ((a*x,b*x,c*x),(d*x,e*x,f*x),(g*x,h*x,i*x))
+
+multDV :: Double -> Vector -> Vector
+multDV a (x,y,z) = (a*x,a*y,a*z)
+
+divDV :: Double -> Vector -> Vector
+divDV a (x,y,z) = (x/a,y/a,z/a)
 
 multMM :: Matrix -> Matrix -> Matrix
 multMM ((a1,b1,c1),(d1,e1,f1),(g1,h1,i1)) ((a2,b2,c2),(d2,e2,f2),(g2,h2,i2))
@@ -95,3 +118,62 @@ m1 <-> m2 = m1 <+> multDM (-1) m2
 
 (<**>) :: Double -> Matrix -> Matrix
 a <**> m1 = multDM a m1
+
+showPrettyCoordss :: [[Coord]] -> String
+showPrettyCoordss xss = foldr addLine "" (map showPrettyCoords xss)
+                        where addLine xs ys = xs++"\n"++ys
+
+showPrettyCoords :: [Coord] -> String
+showPrettyCoords xs = foldr addBlank "" (map show xs)
+                      where addBlank x y = x++" "++y
+
+showPrettyDoubless :: [[Double]] -> String
+showPrettyDoubless xss = foldr addLine "" (map showPrettyDoubles xss)
+                         where addLine xs ys = xs++"\n"++ys
+
+showPrettyDoubles :: [Double] -> String
+showPrettyDoubles xs = foldr addBlank "" (map show xs)
+                       where addBlank x y = x++" "++y
+
+showPrettyVectorss :: [[Vector]] -> String
+showPrettyVectorss xss = foldr addLine "" (map showPrettyVectors xss)
+                        where addLine xs ys = xs++"\n"++ys
+
+showPrettyVectors :: [Vector] -> String
+showPrettyVectors xs = foldr addBlank "" (map show xs)
+                      where addBlank x y = x++" "++y
+
+doubless2Vectorss :: [[Double]] -> [[Vector]]
+doubless2Vectorss xss = map doubles2Vectors xss
+
+doubles2Vectors :: [Double] -> [Vector]
+doubles2Vectors [] = []
+doubles2Vectors (x:xs) = [(0,0,x)]++doubles2Vectors xs
+
+plusV3 :: Vector -> Vector -> Vector
+plusV3 (x1,y1,z1) (x2,y2,z2) = (x1+x2,y1+y2,z1+z2)
+
+avgMagss2Mags :: [[Vector]] -> [Vector]
+avgMagss2Mags vss = map (divDV (fromIntegral (length vss))) (sumMagss2Mags vss)
+
+sumMagss2Mags :: [[Vector]] -> [Vector]
+sumMagss2Mags [vs] = vs
+sumMagss2Mags (vs:vss) = zipWith (plusV3) vs (sumMagss2Mags vss)
+
+getTransNorm :: Vector -> Double
+getTransNorm = \(x,y,z) -> sqrt (x**2+y**2)
+
+duplicateVector :: Int -> Vector -> [Vector]
+duplicateVector 0 _ = []
+duplicateVector n v = [v] ++ duplicateVector (n-1) v
+
+sumSineThetas :: [Double] -> Double
+sumSineThetas [] = 0
+sumSineThetas (x:xs) = sin x + sumSineThetas xs
+
+sumThruThetas :: [Double] -> [[Vector]] -> [Vector]
+sumThruThetas [theta] [vs] = map (multDV (sin theta)) vs
+sumThruThetas (theta:thetas) (vs:vss) = zipWith (plusV3) (map (multDV (sin theta)) vs) (sumThruThetas thetas vss)
+
+avgThruThetas :: [Double] -> [[Vector]] -> [Vector]
+avgThruThetas thetas vss = map (divDV (sumSineThetas thetas)) (sumThruThetas thetas vss)
