@@ -6,15 +6,18 @@ module BlochSolver
    ) where
 
 import LinearAlgebra
+import Control.Parallel (par, pseq)
 
 -- GIVEN A MAG, SOLVE FOR THE NEW MAG BASED ON TIME INTERVAL AND CURRENT B FIELD
-solveBloch :: Double -> Double -> Double -> Double -> Vector -> Vector -> Vector
-solveBloch gamma t1 t2 t_step (bx,by,bz) m1 | a>0 = multMV (exp (-c2*t_step/3) <**> p1) m1
+solveBloch :: Double -> Double -> Double -> Vector -> Vector -> Vector
+solveBloch t1 t2 t_step (bx,by,bz) m1 | a>0 = multMV (exp (-c2*t_step/3) <**> p1) m1
                                             | a<0 && gamm>1 = multMV (exp (-c2*t_step/3) <**> p2) m1
                                             | a<0 && gamm<1 = multMV (exp (-c2*t_step/3) <**> p3) m1
                                             | a<0 && gamm==1 = multMV (exp (-c2*t_step/3) <**> p4) m1
                                             | a==0 && b==0 = multMV (exp (-c2*t_step/3) <**> p5) m1
-                                            where r1 | t2 == 0 = 0
+                                            where
+                                                  gamma = 2*pi*42.57748e6
+                                                  r1 | t2 == 0 = 0
                                                      | otherwise = 1/t2
                                                   r2 | t2 == 0 = 0
                                                      | otherwise = 1/t2
@@ -66,20 +69,18 @@ solveBloch gamma t1 t2 t_step (bx,by,bz) m1 | a>0 = multMV (exp (-c2*t_step/3) <
 
 
 -- EVOLVES 1 MAGNETIZATION VECTOR FOR THE WHOLE COURSE
-evolveMag :: Double -> [Double] -> Double -> Double -> Double -> Double -> [Vector] -> Vector -> [Vector]
-evolveMag currStep flips gamma t1 t2 t_step [] _ = []
-evolveMag currStep flips gamma t1 t2 t_step (field:fields) (mx,my,mz) | elem (currStep*t_step) flips = [m2_] ++ evolveMag (currStep+1) flips gamma t1 t2 t_step fields m2_
-                                                                      | otherwise = [m2] ++ evolveMag (currStep+1) flips gamma t1 t2 t_step fields m2
-                                                                      where m2 = solveBloch gamma t1 t2 t_step field (mx,my,mz)
-                                                                            m2_ = solveBloch gamma t1 t2 t_step field (-mx,my,-mz)           
+evolveMag :: Double -> [Double] -> Double -> Double -> Double -> [Vector] -> Vector -> [Vector]
+evolveMag currStep flips t1 t2 t_step [] _ = []
+evolveMag currStep flips t1 t2 t_step (field:fields) (mx,my,mz) | elem (currStep*t_step) flips = [m2_] ++ evolveMag (currStep+1) flips t1 t2 t_step fields m2_
+                                                                | otherwise = [m2] ++ evolveMag (currStep+1) flips t1 t2 t_step fields m2
+                                                                where m2 = solveBloch t1 t2 t_step field (mx,my,mz)
+                                                                      m2_ = solveBloch t1 t2 t_step field (-mx,my,-mz)
+                                                                                      
 
 -- EVOLVES N MAGNETIZATIONS FOR THE WHOLE COURSE
-evolveMags :: [Double] -> Double -> Double -> Double -> Double -> [Vector] -> [[Vector]] -> [[Vector]]
-evolveMags flips gamma t1 t2 t_step [] _ = []
-evolveMags flips gamma t1 t2 t_step (m:ms) (fields:fieldss) = [evolveMag 0 flips gamma t1 t2 t_step fields m] ++ evolveMags flips gamma t1 t2 t_step ms fieldss
-
-
-
+evolveMags :: [Double] -> Double -> Double -> Double -> [Vector] -> [[Vector]] -> [[Vector]]
+evolveMags flips t1 t2 t_step [] _ = []
+evolveMags flips t1 t2 t_step (m:ms) (fields:fieldss) = [evolveMag 0 flips t1 t2 t_step fields m] ++ evolveMags flips t1 t2 t_step ms fieldss
 
 
 
